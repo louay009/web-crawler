@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Crawler</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.5;
+        }
+        .container {
+            background-color: #f9fafb;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        label {
+            font-weight: 500;
+            color: #374151;
+        }
+        input {
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Web Crawler</h1>
+        <form method="POST">
+            <div>
+                <label for="base_url">URL to Crawl:</label>
+                <input 
+                    type="url" 
+                    id="base_url" 
+                    name="base_url" 
+                    required 
+                    placeholder="https://example.com"
+                    style="width: 100%">
+            </div>
+            <div>
+                <label for="depth">Crawl Depth:</label>
+                <input 
+                    type="number" 
+                    id="depth" 
+                    name="depth" 
+                    required 
+                    min="1" 
+                    max="5" 
+                    value="2">
+            </div>
+            <button type="submit">Start Crawling</button>
+        </form>
+    </div>
+</body>
+</html>

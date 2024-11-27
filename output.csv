@@ -1,0 +1,18 @@
+Raw Request,Raw Response
+"GET https://httpbin.org/links/10/1 HTTP/1.1
+Host: httpbin.org
+Accept: */*
+User-Agent: python-requests/2.32.3","HTTP/1.1 503 Service Temporarily Unavailable
+Server: awselb/2.0
+Date: Mon, 25 Nov 2024 21:17:51 GMT
+Content-Type: text/html
+Content-Length: 162
+Connection: keep-alive
+
+<html>
+<head><title>503 Service Temporarily Unavailable</title></head>
+<body>
+<center><h1>503 Service Temporarily Unavailable</h1></center>
+</body>
+</html>
+"
