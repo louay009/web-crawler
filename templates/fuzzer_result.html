@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Fuzzer Results</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.5;
+        }
+        .container {
+            background-color: #f9fafb;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .back-button, .retry-button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            text-decoration: none;
+            margin-bottom: 1rem;
+            border: none;
+            cursor: pointer;
+        }
+        .back-button:hover, .retry-button:hover {
+            opacity: 0.9;
+        }
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .results-table th, .results-table td {
+            border: 1px solid #e5e7eb;
+            padding: 0.75rem;
+            text-align: left;
+        }
+        .results-table th {
+            background-color: #f3f4f6;
+        }
+        .status-200 {
+            color: green;
+        }
+        .status-404 {
+            color: red;
+        }
+        .status-500 {
+            color: orange;
+        }
+        .url-text {
+            color: #2563eb;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .url-text:hover {
+            text-decoration: underline;
+        }
+        .content-preview {
+            max-height: 100px;
+            overflow: auto;
+            background-color: #f9fafb;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .stats {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background-color: #f3f4f6;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/fuzzer" class="back-button">← Back to Fuzzer</a>
+        
+        <h1>URL Fuzzer Results</h1>
+        
+        <div class="stats">
+            <h2>Fuzzing Statistics</h2>
+            <p>Base URL: {{ base_url }}</p>
+            <p>Total URLs Tested: {{ results|length }}</p>
+            <p>Successful Responses: {{ results|selectattr('status_code', 'equalto', 200)|list|length }}</p>
+        </div>
+
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th>URL</th>
+                    <th>Status Code</th>
+                    <th>Content Preview</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr>
+                    <td>
+                        <a href="{{ result.url }}" class="url-text" target="_blank">{{ result.url }}</a>
+                    </td>
+                    <td>
+                        {% if result.error %}
+                            <span class="status-500">Error</span>
+                        {% else %}
+                            <span class="status-{{ result.status_code }}">{{ result.status_code }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if result.error %}
+                            <div class="content-preview">{{ result.error }}</div>
+                        {% else %}
+                            <div class="content-preview">{{ result.content }}</div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
