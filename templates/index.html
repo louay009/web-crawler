@@ -21,6 +21,7 @@
         h1 {
             color: #1f2937;
             margin-bottom: 1.5rem;
+            text-align: center;
         }
         form {
             display: flex;
@@ -58,8 +59,10 @@
             display: none;
             text-align: center;
             margin-top: 1rem;
+            flex-direction: column; 
+            align-items: center; 
         }
-        .loading-spinner {
+        .spinner {
             border: 4px solid #f3f4f6;
             border-top: 4px solid #2563eb;
             border-radius: 50%;
@@ -81,82 +84,37 @@
 <body>
     <div class="container">
         <h1>Web Crawler</h1>
-        <form id="crawlerForm" method="POST" action="/tree">
+        <form id="crawlerForm" action="/crawl" method="POST">
             <div>
                 <label for="base_url">URL to Crawl:</label>
-                <input
-                    type="url"
-                    id="base_url"
-                    name="base_url"
-                    required
+                <input 
+                    type="url" 
+                    id="base_url" 
+                    name="base_url" 
+                    required 
                     placeholder="https://example.com"
                     style="width: 100%">
             </div>
             <div>
                 <label for="depth">Crawl Depth:</label>
-                <input
-                    type="number"
-                    id="depth"
-                    name="depth"
-                    required
-                    min="1"
-                    max="5"
+                <input 
+                    type="number" 
+                    id="depth" 
+                    name="depth" 
+                    required 
+                    min="1" 
+                    max="5" 
                     value="2">
             </div>
-            <button type="submit" id="submitButton">Start Crawling</button>
-            <button type="button" onclick="window.location.href = '/fuzzer'">switch to fuzzer</button>
+            <button type="submit">Start Crawling</button>
         </form>
         
-        <div id="loadingIndicator" class="loading">
-            <div class="loading-spinner"></div>
+        <div id="loading" class="loading">
+            <div class="spinner"></div><br>
             <div class="loading-text">Crawling in progress... This may take a few minutes.</div>
         </div>
     </div>
 
-    <script>
-        document.getElementById('crawlerForm').addEventListener('submit', function(event) {
-            // Prevent the default form submission
-            event.preventDefault();
-            
-            // Disable the submit button to prevent multiple submissions
-            const submitButton = document.getElementById('submitButton');
-            submitButton.disabled = true;
-            
-            // Show the loading indicator
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            loadingIndicator.style.display = 'block';
-            
-            // Get form data
-            const formData = new FormData(this);
-            
-            // Send the form data via fetch
-            fetch('/tree', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                // Check if the response is successful
-                if (!response.ok) {
-                    throw new Error('Crawling failed');
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Handle successful crawl (e.g., redirect or show results)
-                alert('Crawling completed successfully!');
-                window.location.href = '/tree.html';
-            })
-            .catch(error => {
-                // Handle any errors
-                console.error('Error:', error);
-                alert('An error occurred during crawling');
-            })
-            .finally(() => {
-                // Re-enable the submit button and hide loading indicator
-                submitButton.disabled = false;
-                loadingIndicator.style.display = 'none';
-            });
-        });
-    </script>
+    <script src="/static/script.js"></script>
 </body>
 </html>

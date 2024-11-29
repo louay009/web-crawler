@@ -1,16 +1,35 @@
+import os
+import logging
+from typing import Dict, List, Optional
 import flask
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
-from collections import defaultdict
 import requests
-import sys
-from collections import deque
-import itertools
+import urllib3
+
+# Disable SSL warnings for self-signed or invalid certificates
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Configure logging
+# logging.basicConfig(
+#     level=logging.INFO, 
+#     format='%(asctime)s - %(levelname)s: %(message)s',
+#     handlers=[
+#         logging.FileHandler('web_crawler.log'),
+#         logging.StreamHandler()
+#     ]
+# )
+# logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file upload
+app.config['UPLOAD_FOLDER'] = 'uploads'  # Ensure this directory exists
 
-def extract_form_details(form):
+# Ensure upload directory exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+def extract_form_details(form) -> Dict:
     """
     Extract details from a form element
     """
@@ -22,25 +41,21 @@ def extract_form_details(form):
 
     # Extract input fields
     for input_tag in form.find_all(['input', 'textarea', 'select']):
-        input_type = input_tag.get('type', 'text')
-        input_name = input_tag.get('name', '')
-        input_value = input_tag.get('value', '')
-        
         input_details = {
-            'type': input_type,
-            'name': input_name,
-            'value': input_value
+            'type': input_tag.get('type', 'text'),
+            'name': input_tag.get('name', ''),
+            'value': input_tag.get('value', '')
         }
         form_details['inputs'].append(input_details)
 
     return form_details
 
-def crawl_bfs(url, base_url, max_depth):
+def crawl_bfs(url: str, base_url: str, max_depth: int) -> Dict:
     """
     Crawl the given URL up to the specified max_depth using BFS.
     Returns a hierarchical dictionary of the site structure with input details.
     """
-    def get_normalized_url(url):
+    def get_normalized_url(url: str) -> str:
         """Normalize URL to prevent minor variations causing duplicate crawls"""
         parsed = urlparse(url)
         normalized = f"{parsed.scheme}://{parsed.netloc.rstrip('/')}{parsed.path.rstrip('/')}"
@@ -51,10 +66,10 @@ def crawl_bfs(url, base_url, max_depth):
     # Initialize data structures
     visited_urls = set()
     sitemap = {}
-    queue = deque([(url, 0)])
+    queue = [(url, 0)]
 
     while queue:
-        current_url, current_depth = queue.popleft()
+        current_url, current_depth = queue.pop(0)
         current_url = get_normalized_url(current_url)
 
         # Skip if depth exceeded or URL already visited
@@ -63,10 +78,11 @@ def crawl_bfs(url, base_url, max_depth):
 
         # Mark URL as visited
         visited_urls.add(current_url)
-        print(f"Crawling: {current_url} at depth {current_depth}")
+        logger.info(f"Crawling: {current_url} at depth {current_depth}")
 
         try:
-            response = requests.get(current_url, timeout=50)
+            # Disable SSL verification for testing (remove in production)
+            response = requests.get(current_url, timeout=50, verify=False)
             soup = BeautifulSoup(response.text, "lxml")
 
             # Initialize an entry for the current URL in the sitemap
@@ -99,94 +115,50 @@ def crawl_bfs(url, base_url, max_depth):
                 # Only process links within the same domain
                 if urlparse(full_link).netloc == urlparse(base_url).netloc:
                     sitemap[current_url]['links'].add(full_link)
-                    print(f"Found link: {full_link}")
+                    logger.info(f"Found link: {full_link}")
 
                     if full_link not in visited_urls:
                         queue.append((full_link, current_depth + 1))
 
         except requests.RequestException as e:
-            print(f"Error crawling {current_url}: {e}")
+            logger.error(f"Error crawling {current_url}: {e}")
             continue
 
     return sitemap
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    return render_template("index.html")
-
-@app.route("/tree", methods=["POST"])
-def tree():
-    if request.method == "POST":
-        base_url = request.form["base_url"]
-        depth = min(int(request.form["depth"]), 5)  # Limit depth to 5
-
-        sitemap = crawl_bfs(base_url, base_url, depth)
-
-        # Convert sets to lists and prepare data for template
-        sitemap_processed = {}
-        for url, data in sitemap.items():
-            sitemap_processed[url] = {
-                'links': list(data['links']),
-                'depth': data['depth'],
-                'forms': data['forms'],
-                'queries': data['queries']
-            }
-
-        return render_template("tree.html", sitemap=sitemap_processed, base_url=base_url)
-    render_template("index.html")
-#fuzzzzzzzzzzerrrrr
-
-
-
-def load_wordlist(filepath):
-    """Load words from a wordlist file"""
+def load_wordlist(filepath: str) -> List[str]:
+    """
+    Load words from a wordlist file with enhanced error handling
+    """
     try:
-        with open(filepath, 'r') as file:
-            return [line.strip() for line in file]
+        with open(filepath, 'r', encoding='utf-8') as file:
+            # Strip whitespace and filter out empty lines
+            return [line.strip() for line in file if line.strip()]
     except FileNotFoundError:
+        logger.error(f"Wordlist file not found: {filepath}")
         raise ValueError(f"Wordlist file not found: {filepath}")
-    except Exception as e:
+    except IOError as e:
+        logger.error(f"Error reading wordlist {filepath}: {e}")
         raise ValueError(f"Error reading wordlist: {str(e)}")
 
-def fuzz_url(base_url, wordlist):
-    """Fuzz the given URL with words from the wordlist"""
-    results = []
-    
+def fuzz_url(base_url: str, words: List[str]) -> List[Dict]:
+    """
+    Fuzz the given URL with words from the wordlist
+    """
     # Validate base URL
     if 'FUZZ' not in base_url:
         raise ValueError("Base URL must contain 'FUZZ' placeholder")
-    # Check if a file was uploaded
-    uploaded_file = request.files.get('custom_wordlist')
-    if uploaded_file:
-        # Save the uploaded file to a temporary location
-        temp_filepath = f"./{uploaded_file.filename}"
-        uploaded_file.save(temp_filepath)
-        # Load wordlist from the uploaded file
-        words = load_wordlist(temp_filepath)
-    else:
-        # Predefined wordlist paths
-        wordlist_paths = {
-            "common.txt": "/path/to/wordlists/common.txt",
-            "big.txt": "/path/to/wordlists/big.txt",
-            "dirs.txt": "/path/to/wordlists/dirs.txt"
-        }
-        
-        # Get full path for the selected wordlist
-        full_wordlist_path = wordlist_paths.get(wordlist)
-        if not full_wordlist_path:
-            raise ValueError("Invalid wordlist selected")
-        
-        # Load wordlist
-        try:
-            words = load_wordlist(full_wordlist_path)
-        except ValueError as e:
-            raise ValueError(str(e))
+
+    results = []
 
     # Fuzz URLs
     for word in words:
-        fuzzed_url = base_url.replace("FUZZ", word)
+        # Sanitize word to prevent potential command injection
+        safe_word = ''.join(c for c in word if c.isalnum() or c in ['-', '_'])
+        
+        fuzzed_url = base_url.replace("FUZZ", safe_word)
         try:
-            response = requests.get(fuzzed_url, timeout=10)
+            response = requests.get(fuzzed_url, timeout=10, verify=False)
             results.append({
                 'url': fuzzed_url,
                 'status_code': response.status_code,
@@ -200,17 +172,63 @@ def fuzz_url(base_url, wordlist):
     
     return results
 
+@app.route("/", methods=["GET"])
+def index():
+    return render_template("index.html")
+
+@app.route("/crawl", methods=["POST"])
+def crawl():
+    base_url = request.form["base_url"]
+    depth = min(int(request.form["depth"]), 5)  # Limit depth to 5
+
+    sitemap = crawl_bfs(base_url, base_url, depth)
+
+    # Convert sets to lists and prepare data for template
+    sitemap_processed = {}
+    for url, data in sitemap.items():
+        sitemap_processed[url] = {
+            'links': list(data['links']),
+            'depth': data['depth'],
+            'forms': data['forms'],
+            'queries': data['queries']
+        }
+
+    return render_template("tree.html", sitemap=sitemap_processed, base_url=base_url)
+
 @app.route("/fuzzer", methods=["GET", "POST"])
 def fuzzer():
     """Route to handle URL fuzzing"""
     if request.method == "POST":
         try:
             # Get form data
-            base_url = request.form["base_url"]
-            wordlist_path = request.form["wordlist_path"]
+            base_url = request.form.get("base_url", "")
+            
+            # Handle file upload
+            uploaded_file = request.files.get('custom_wordlist')
+            
+            if uploaded_file:
+                # Save uploaded file
+                filename = os.path.join(app.config['UPLOAD_FOLDER'], uploaded_file.filename)
+                uploaded_file.save(filename)
+                words = load_wordlist(filename)
+            else:
+                # Predefined wordlists (update paths as needed)
+                wordlist_paths = {
+                    "common": os.path.join("wordlists", "common.txt"),
+                    "big": os.path.join("wordlists", "big.txt"),
+                    "dirs": os.path.join("wordlists", "dirs.txt")
+                }
+                
+                selected_wordlist = request.form.get("wordlist_path", "common")
+                wordlist_path = wordlist_paths.get(selected_wordlist)
+                
+                if not wordlist_path or not os.path.exists(wordlist_path):
+                    raise ValueError("Invalid or missing wordlist")
+                
+                words = load_wordlist(wordlist_path)
             
             # Perform fuzzing
-            fuzz_results = fuzz_url(base_url, wordlist_path)
+            fuzz_results = fuzz_url(base_url, words)
             
             # Render results template
             return render_template(
@@ -221,12 +239,14 @@ def fuzzer():
         
         except ValueError as e:
             # Handle specific validation errors 
+            logger.warning(f"Fuzzer validation error: {e}")
             return render_template(
                 "fuzzer.html", 
                 error=str(e)
             ), 400
         except Exception as e:
             # Handle unexpected errors
+            logger.error(f"Unexpected fuzzer error: {e}")
             return render_template(
                 "fuzzer.html", 
                 error="An unexpected error occurred during fuzzing"
@@ -235,7 +255,7 @@ def fuzzer():
     # GET request: render input form
     return render_template("fuzzer.html")
 
-# Optional: Add error handling middleware
+# Error handlers
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('error.html', error="Page not found"), 404
@@ -244,8 +264,9 @@ def page_not_found(e):
 def internal_server_error(e):
     return render_template('error.html', error="Internal server error"), 500
 
-
-
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Ensure wordlists directory exists
+    os.makedirs("wordlists", exist_ok=True)
+    
+    # Run the app
+    app.run(debug=True, host='0.0.0.0', port=5000)
