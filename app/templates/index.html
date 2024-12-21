@@ -79,9 +79,35 @@
             margin-top: 1rem;
             color: #4b5563;
         }
+        .nav-bar {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .nav-item {
+            padding: 0.75rem 1.5rem;
+            text-decoration: none;
+            color: #4b5563;
+            font-weight: 500;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .nav-item:hover {
+            background-color: #e5e7eb;
+        }
+        .nav-item.active {
+            background-color: #2563eb;
+            color: white;
+        }
     </style>
 </head>
 <body>
+    <div class="nav-bar">
+        <a href="/" class="nav-item active">Crawler</a>
+        <a href="/fuzzer" class="nav-item">Fuzzer</a>
+    </div>
     <div class="container">
         <h1>Web Crawler</h1>
         <form id="crawlerForm" action="/crawl" method="POST">
