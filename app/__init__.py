@@ -1,8 +1,11 @@
 from flask import Flask
 from flask_socketio import SocketIO
 import os
-
+from flask_cors import CORS
 socketio = SocketIO()
+
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 def create_app():
     """
@@ -10,6 +13,7 @@ def create_app():
     """
     app = Flask(__name__)
     # Initialize extensions
+    CORS(app)
     socketio.init_app(app)
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file upload
     app.config['UPLOAD_FOLDER'] = 'uploads'  # Ensure this directory exists

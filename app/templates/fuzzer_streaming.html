@@ -154,10 +154,48 @@
             font-size: 0.875rem;
             margin-left: 1rem;
         }
+
         h1 {
             color: #1f2937;
             margin-bottom: 1.5rem;
             text-align: center;
+        }
+
+        /* Stop button styling that matches the template */
+        .control-group {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+        }
+
+        .stop-button {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .stop-button:hover:not(:disabled) {
+            background-color: #dc2626;
+        }
+
+        .stop-button:disabled {
+            background-color: #f87171;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            margin-left: 1rem;
+            color: #4b5563;
+            font-size: 0.875rem;
         }
     </style>
 </head>
@@ -168,69 +206,27 @@
     </div>
     <div class="container">
         <a href="/fuzzer" class="back-button">← Back to Fuzzer</a>
-       
+        
         <h1>URL Fuzzer Results</h1>
-       
-        <div class="stats">
-            <h2>Fuzzing Statistics</h2>
-            <p>Base URL: {{ base_url }}</p>
-            <p>Total URLs Tested: {{ results|length }}</p>
-            <p>Successful Responses: {{ results|selectattr('status_code', 'equalto', 200)|list|length }}</p>
+        
+        <div class="control-group">
+            <button id="stopButton" class="stop-button" disabled>Stop Fuzzing</button>
+            <span id="statusMessage" class="status-message">Initializing...</span>
         </div>
 
-        {% set status_groups = {} %}
-        {% for result in results %}
-            {% if result.status_code not in status_groups %}
-                {% set _ = status_groups.update({result.status_code: []}) %}
-            {% endif %}
-            {% set _ = status_groups[result.status_code].append(result) %}
-        {% endfor %}
+        <div class="stats">
+            <h2>Fuzzing Statistics</h2>
+            <p>Base URL: <span id="baseUrl">{{ base_url }}</span></p>
+            <p>Total URLs Tested: <span id="totalTested">0</span></p>
+            <p>Successful Responses: <span id="successfulResponses">0</span></p>
+        </div>
 
-        {% for status_code, group_results in status_groups|dictsort %}
-            <div class="status-group" data-status="{{ status_code }}">
-                <div class="status-header" onclick="toggleGroup({{ status_code }})">
-                    <div style="display: flex; align-items: center;">
-                        <span class="status-badge status-{{ status_code }}">
-                            {{ status_code }} - 
-                            {% if status_code == 200 %}Success
-                            {% elif status_code == 404 %}Not Found
-                            {% elif status_code == 500 %}Server Error
-                            {% else %}Unknown Status
-                            {% endif %}
-                        </span>
-                        <span class="count-badge">
-                            {{ group_results|length }} URLs
-                        </span>
-                    </div>
-                    <span class="toggle-icon">▼</span>
-                </div>
-                <div class="status-content">
-                    <ul class="url-list">
-                        {% for result in group_results %}
-                            <li>
-                                <a href="{{ result.url }}" class="url-text" target="_blank">
-                                    {{ result.url }}
-                                </a>
-                                {% if result.error %}
-                                    <div style="color: #991b1b; margin-top: 0.25rem">
-                                        {{ result.error }}
-                                    </div>
-                                {% endif %}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-        {% endfor %}
+        <div id="status-groups">
+            <!-- Status groups will be dynamically added here -->
+        </div>
     </div>
 
-    <script>
-        function toggleGroup(statusCode) {
-            const content = document.querySelector(`[data-status="${statusCode}"] .status-content`);
-            const header = document.querySelector(`[data-status="${statusCode}"] .status-header`);
-            content.classList.toggle('expanded');
-            header.classList.toggle('expanded');
-        }
+    <script src="{{ url_for('static', filename='fuzzerStreaming.js') }}">
     </script>
 </body>
 </html>
